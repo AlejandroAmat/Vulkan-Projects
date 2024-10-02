@@ -8,7 +8,7 @@
 #include <vector>
 #include "utilities.h"
 #include <set>
-
+#include <algorithm>
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
@@ -37,6 +37,12 @@ private:
 	VkQueue graphicsQueue;
 	VkQueue presentationQueue;
 	VkSurfaceKHR surface;
+	VkSwapchainKHR swapchain;
+	std::vector<SwapChainImage> images;
+	//utility
+	VkFormat swapChainFormat;
+	VkExtent2D swapChainExtent2D;
+	
 
 	//get functions
 	void getPhysicalDevice();
@@ -47,6 +53,7 @@ private:
 	void createInstance();
 	void createLogicalDevice();
 	void createSurface();
+	void createSwapChain();
 
 	//support
 	bool checkInstanceExtensionSupport(std::vector<const char*>* extensions);
@@ -55,7 +62,14 @@ private:
 	bool checkDeviceExtensionSupport(VkPhysicalDevice device); //swapchain compatibility is checked on physical device level
 
 
+	//choose functions
+	VkSurfaceFormatKHR chooseBestFormatSurface(const std::vector<VkSurfaceFormatKHR>& formats);
+	VkPresentModeKHR chooseBestPresentMode(const std::vector<VkPresentModeKHR>& presentModes);
+	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
+
+	//create support functions
+	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 
 
 	//own debugger

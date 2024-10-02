@@ -9,7 +9,7 @@ const std::vector<const char*> validationLayers = {
 };
 
 struct QueueFamilyIndices {
-	int graphicsFamily = -1; //loction
+	int graphicsFamily = -1; //location
 	int presentationFamily = -1;
 	bool isValid() {
 		return graphicsFamily >= 0 && presentationFamily>=0;
@@ -21,4 +21,9 @@ struct SwapChainDetails {
 	VkSurfaceCapabilitiesKHR surfaceCapabilities; //surface properties
 	std::vector<VkSurfaceFormatKHR> imageFormat;  //RGB, HSV...
 	std::vector<VkPresentModeKHR> presentationsMode;  //presentationMode
+};
+
+struct SwapChainImage {
+	VkImage image;
+	VkImageView imageView;
 };
