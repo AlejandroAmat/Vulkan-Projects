@@ -241,7 +241,7 @@ bool VulkanRender::checkDeviceExtensionSupport(VkPhysicalDevice device)
 	if (extensionCount == 0)
 		return false;
 
-	std::vector<VkExtensionProperties> extensionProperties;
+	std::vector<VkExtensionProperties> extensionProperties(extensionCount);
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, extensionProperties.data());
 
 	for (const auto& neededExtensions : deviceExtensions) {
