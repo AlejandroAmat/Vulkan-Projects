@@ -60,6 +60,35 @@ void VulkanRender::getPhysicalDevice()
 			break;
 		}		
 	}
+	if (mainDevice.physicalDevice == nullptr) {
+		throw std::runtime_error("No suitable physical Device");
+	}
+}
+
+SwapChainDetails VulkanRender::getSwapChainDetails(VkPhysicalDevice device)
+{	
+	//PER device/surface
+	SwapChainDetails swapChainDetails;
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &swapChainDetails.surfaceCapabilities);
+	uint32_t formatCount;
+	uint32_t presentationCount;
+	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+	
+	if (formatCount != 0) 
+	{
+		swapChainDetails.imageFormat.resize(formatCount);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, swapChainDetails.imageFormat.data());
+	}
+	
+	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentationCount,nullptr);
+
+	if (presentationCount != 0) 
+	{	
+		swapChainDetails.presentationsMode.resize(presentationCount);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentationCount, swapChainDetails.presentationsMode.data());
+	}
+
+	return swapChainDetails;
 }
 
 void VulkanRender::createInstance()
@@ -152,6 +181,7 @@ void VulkanRender::createLogicalDevice()
 	VkPhysicalDeviceFeatures deviceFeatures = {};
 
 	deviceInfo.pEnabledFeatures = &deviceFeatures; //physical device features, device will use
+
 	if(vkCreateDevice(mainDevice.physicalDevice, &deviceInfo, nullptr, &mainDevice.logicalDevice)!= VK_SUCCESS)
 		throw std::runtime_error("failed to create Logical Device");
 	
@@ -203,8 +233,19 @@ bool VulkanRender::checkDeviceSuitable(VkPhysicalDevice device)
 
 	//queue families
 	QueueFamilyIndices ind = getQueueFamilies(device);
+	//swapchain extension
 	bool deviceExtensionSupport = checkDeviceExtensionSupport(device);
-	return ind.isValid() && deviceExtensionSupport;
+
+	
+	bool swapChainValid=false;
+	if (deviceExtensionSupport) 
+	{
+		SwapChainDetails swapChainDetails = getSwapChainDetails(device);
+		swapChainValid = swapChainDetails.imageFormat.size() > 0 && swapChainDetails.presentationsMode.size() > 0;
+	}
+		
+
+	return ind.isValid() && deviceExtensionSupport && swapChainValid;
 }
 
 bool VulkanRender::checkValidationLayerSupport()

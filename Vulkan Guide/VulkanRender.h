@@ -40,6 +40,8 @@ private:
 
 	//get functions
 	void getPhysicalDevice();
+	SwapChainDetails getSwapChainDetails(VkPhysicalDevice device);
+	QueueFamilyIndices getQueueFamilies(VkPhysicalDevice device);
 
 	//create Functions
 	void createInstance();
@@ -51,9 +53,8 @@ private:
 	bool checkDeviceSuitable(VkPhysicalDevice device);
 	bool checkValidationLayerSupport();
 	bool checkDeviceExtensionSupport(VkPhysicalDevice device); //swapchain compatibility is checked on physical device level
-	
 
-	QueueFamilyIndices getQueueFamilies(VkPhysicalDevice device);
+
 
 
 
