@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <vector>
 #include "utilities.h"
+#include <set>
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -34,6 +35,8 @@ private:
 		VkDevice logicalDevice;
 	}mainDevice;
 	VkQueue graphicsQueue;
+	VkQueue presentationQueue;
+	VkSurfaceKHR surface;
 
 	//get functions
 	void getPhysicalDevice();
@@ -41,10 +44,13 @@ private:
 	//create Functions
 	void createInstance();
 	void createLogicalDevice();
+	void createSurface();
+
 	//support
 	bool checkInstanceExtensionSupport(std::vector<const char*>* extensions);
 	bool checkDeviceSuitable(VkPhysicalDevice device);
 	bool checkValidationLayerSupport();
+	bool checkDeviceExtensionSupport(VkPhysicalDevice device); //swapchain compatibility is checked on physical device level
 	
 
 	QueueFamilyIndices getQueueFamilies(VkPhysicalDevice device);
