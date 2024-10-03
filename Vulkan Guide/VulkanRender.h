@@ -54,6 +54,7 @@ private:
 	void createLogicalDevice();
 	void createSurface();
 	void createSwapChain();
+	void createGraphicsPipeline();
 
 	//support
 	bool checkInstanceExtensionSupport(std::vector<const char*>* extensions);
@@ -70,7 +71,7 @@ private:
 
 	//create support functions
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
-
+	VkShaderModule createShaderModule(const std::vector<char>& code);
 
 	//own debugger
 	VkDebugUtilsMessengerEXT debugMessenger;

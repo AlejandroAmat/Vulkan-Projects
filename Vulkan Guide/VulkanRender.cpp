@@ -15,6 +15,7 @@ int VulkanRender::init(GLFWwindow* newWindow)
 		getPhysicalDevice();
 		createLogicalDevice();
 		createSwapChain();
+		createGraphicsPipeline();
 		
 
 	}
@@ -283,6 +284,43 @@ void VulkanRender::createSwapChain()
 
 }
 
+void VulkanRender::createGraphicsPipeline()
+{
+	auto vertShaderCode = readFile("Shaders/vert.spv");
+	auto fragShaderCode = readFile("Shaders/frag.spv");
+
+	VkShaderModule vertexShader = createShaderModule(vertShaderCode);
+	VkShaderModule fragmentShader = createShaderModule(fragShaderCode);
+
+	VkPipelineShaderStageCreateInfo vertexShaderCreate = {};
+	vertexShaderCreate.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertexShaderCreate.stage = VK_SHADER_STAGE_VERTEX_BIT;
+	vertexShaderCreate.module = vertexShader;
+	vertexShaderCreate.pName = "main";
+
+	VkPipelineShaderStageCreateInfo fragmentShaderCreate = {};
+	vertexShaderCreate.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertexShaderCreate.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	vertexShaderCreate.module = fragmentShader;
+	vertexShaderCreate.pName = "main";
+
+	VkPipelineShaderStageCreateInfo shaderStages[] = { vertexShaderCreate, fragmentShaderCreate };
+
+	//Pipeline
+
+
+
+	//Destroy Modules
+
+	vkDestroyShaderModule(mainDevice.logicalDevice, fragmentShader, nullptr);
+	vkDestroyShaderModule(mainDevice.logicalDevice, vertexShader, nullptr);
+
+	
+
+
+
+}
+
 bool VulkanRender::checkInstanceExtensionSupport(std::vector<const char*>* check) {
 	uint32_t extensionCount = 0;
 	//we don't know yet size of list so we h ave to first obtain count
@@ -515,6 +553,21 @@ void VulkanRender::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateI
 	 }
 
 	 return imageView;
+ }
+
+ VkShaderModule VulkanRender::createShaderModule(const std::vector<char>& code)
+ {
+	 VkShaderModuleCreateInfo shaderCreateInfo = {};
+	 shaderCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	 shaderCreateInfo.codeSize = code.size();
+	 shaderCreateInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+	 VkShaderModule shaderModule;
+	 if (vkCreateShaderModule(mainDevice.logicalDevice, &shaderCreateInfo, nullptr, &shaderModule)!= VK_SUCCESS)
+		 throw std::runtime_error("Fail Creating Shader Module");
+
+	 return shaderModule;
+
  }
 
  void VulkanRender::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
