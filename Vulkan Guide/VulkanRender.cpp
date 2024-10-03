@@ -307,8 +307,93 @@ void VulkanRender::createGraphicsPipeline()
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertexShaderCreate, fragmentShaderCreate };
 
 	//Pipeline
+	//VERTEX INPUT ---TODO
 
+	VkPipelineVertexInputStateCreateInfo vertexIputCreateInfo = {};
+	vertexIputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertexIputCreateInfo.pVertexBindingDescriptions = nullptr;  //data spacing, values stride
+	vertexIputCreateInfo.vertexBindingDescriptionCount = 0;
+	vertexIputCreateInfo.pVertexAttributeDescriptions = nullptr;
+	vertexIputCreateInfo.vertexAttributeDescriptionCount = 0;
 
+	// --INPUT ASSEMBLY--
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {};
+	inputAssemblyCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssemblyCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	inputAssemblyCreateInfo.primitiveRestartEnable = VK_FALSE; //overriding strip false
+
+	//--viewport & scissor--
+	VkViewport viewPort = {};
+	viewPort.x = 0.0f;
+	viewPort.y = 0.0f;
+	viewPort.width = (float)swapChainExtent2D.width;
+	viewPort.height = (float)swapChainExtent2D.height;
+	viewPort.maxDepth = 1.0f;
+	viewPort.minDepth = 0.0f;
+
+	VkRect2D scissor = {};
+	scissor.offset = { 0,0 };
+	scissor.extent = swapChainExtent2D;
+
+	VkPipelineViewportStateCreateInfo viewPortInfo = {};
+	viewPortInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	viewPortInfo.pScissors = &scissor;
+	viewPortInfo.pViewports = &viewPort;
+	viewPortInfo.scissorCount = 1;
+	viewPortInfo.viewportCount = 1;
+
+	//Dynamic states// will not do in course but to understand
+	std::vector<VkDynamicState> dynamicStatesEnables;
+	dynamicStatesEnables.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+	dynamicStatesEnables.push_back(VK_DYNAMIC_STATE_SCISSOR);   //vkcmdSetViewport//scrissor commandBuffer, 0 (ind), 1 (size), &newViweport/scissor);
+	//we have to desroty current swapchain and recreate it for new sizes
+	VkPipelineDynamicStateCreateInfo dynStateInfo = {};
+	dynStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynStateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStatesEnables.size());
+	dynStateInfo.pDynamicStates = dynamicStatesEnables.data();
+
+	//--rasterizer--
+	
+	VkPipelineRasterizationStateCreateInfo rasterInfo = {};
+	rasterInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterInfo.depthClampEnable = VK_FALSE;
+	rasterInfo.rasterizerDiscardEnable = VK_FALSE; //if not want to send everything to frambuffer-- if not drawing /store intermediate val.
+	rasterInfo.polygonMode = VK_POLYGON_MODE_FILL; //other needs gpuy feature
+	rasterInfo.lineWidth = 1.0f;
+	rasterInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rasterInfo.depthBiasEnable = VK_FALSE;  //for shadow computations. for stopping shadow acne.
+
+	//--multisampling--//
+	//resolve attatchment
+	VkPipelineMultisampleStateCreateInfo multisampleCreateInfo = {};
+	multisampleCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampleCreateInfo.sampleShadingEnable = VK_FALSE;
+	multisampleCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;  //samples per fragment
+
+	//--Blending--
+	//blend attatchemtnstate
+	VkPipelineColorBlendAttachmentState colorState = {};
+	colorState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	colorState.blendEnable = VK_TRUE;
+	colorState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	colorState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+	colorState.colorBlendOp = VK_BLEND_OP_ADD;
+	//to keep  alpha for some reason
+	colorState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colorState.alphaBlendOp = VK_BLEND_OP_ADD;
+
+	VkPipelineColorBlendStateCreateInfo blendInfo = {};
+	blendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	blendInfo.logicOpEnable = VK_FALSE;  //alternative to calculations
+	blendInfo.attachmentCount = 1;
+	blendInfo.pAttachments = &colorState;
+	//blendInfo.blendConstants if we want constant blendings
+
+	//--Pipeline Layout (TODO:: Desccroiptor Set layouts//
+
+	
 
 	//Destroy Modules
 
@@ -497,37 +582,6 @@ QueueFamilyIndices VulkanRender::getQueueFamilies(VkPhysicalDevice device)
 }
 
 
-void VulkanRender::setupDebugMessenger() {
-	if (!enableValidationLayers) return;
-
-	VkDebugUtilsMessengerCreateInfoEXT createInfo;
-	populateDebugMessengerCreateInfo(createInfo);
-
-	if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
-		throw std::runtime_error("failed to set up debug messenger!");
-	}
-}
-
-void VulkanRender::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
-{
-	createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-	createInfo.pfnUserCallback = debugCallback;
-}
-
-
-
- VkResult VulkanRender::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
-	 auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-	 if (func != nullptr) {
-		 return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-	 }
-	 else {
-		 return VK_ERROR_EXTENSION_NOT_PRESENT;
-	 }
- }
 
  VkImageView VulkanRender::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags)
  {
@@ -564,11 +618,42 @@ void VulkanRender::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateI
 
 	 VkShaderModule shaderModule;
 	 if (vkCreateShaderModule(mainDevice.logicalDevice, &shaderCreateInfo, nullptr, &shaderModule)!= VK_SUCCESS)
-		 throw std::runtime_error("Fail Creating Shader Module");
+		 throw std::runtime_error("Clansy Error: Fail Creating Shader Module");
 
 	 return shaderModule;
 
  }
+
+ void VulkanRender::setupDebugMessenger() {
+	 if (!enableValidationLayers) return;
+
+	 VkDebugUtilsMessengerCreateInfoEXT createInfo;
+	 populateDebugMessengerCreateInfo(createInfo);
+
+	 if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
+		 throw std::runtime_error("failed to set up debug messenger!");
+	 }
+ }
+
+ void VulkanRender::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+ {
+	 createInfo = {};
+	 createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+	 createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	 createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	 createInfo.pfnUserCallback = debugCallback;
+ }
+
+ VkResult VulkanRender::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+	 auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+	 if (func != nullptr) {
+		 return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+	 }
+	 else {
+		 return VK_ERROR_EXTENSION_NOT_PRESENT;
+	 }
+ }
+
 
  void VulkanRender::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
 	 auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
