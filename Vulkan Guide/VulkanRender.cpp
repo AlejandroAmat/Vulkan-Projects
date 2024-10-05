@@ -15,6 +15,7 @@ int VulkanRender::init(GLFWwindow* newWindow)
 		getPhysicalDevice();
 		createLogicalDevice();
 		createSwapChain();
+		createRenderPass();
 		createGraphicsPipeline();
 		
 
@@ -30,6 +31,9 @@ int VulkanRender::init(GLFWwindow* newWindow)
 
 void VulkanRender::cleanUp()
 {			
+	vkDestroyPipeline(mainDevice.logicalDevice, graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(mainDevice.logicalDevice, pipelineLayout, nullptr);
+	vkDestroyRenderPass(mainDevice.logicalDevice, renderPass,  nullptr);
 	for (const auto& image : images) {
 		vkDestroyImageView(mainDevice.logicalDevice, image.imageView, nullptr);
 	}
@@ -283,6 +287,64 @@ void VulkanRender::createSwapChain()
 
 }
 
+void VulkanRender::createRenderPass()
+{
+	VkAttachmentDescription colorAttatchment = {};
+	colorAttatchment.format = swapChainFormat;
+	colorAttatchment.samples = VK_SAMPLE_COUNT_1_BIT;  //multsampling
+	colorAttatchment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; //what attatchment before rend (clear 0 memory)
+	colorAttatchment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttatchment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttatchment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+	//framebuffer will stored as image. but images can have different data loyouts.  Render view, source view...
+
+	colorAttatchment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttatchment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	//Attatchment reference for subpass color att. 
+	VkAttachmentReference colorReference = {};
+	colorReference.attachment = 0; //order in list
+	colorReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &colorReference;
+
+	//need to determine when layout transitions occur--> subpass dependencies.
+	std::array<VkSubpassDependency, 2> subpassDependency;
+	subpassDependency[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+	subpassDependency[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	subpassDependency[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	//has to happen before than
+	subpassDependency[0].dstSubpass = 0;
+	subpassDependency[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependency[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	subpassDependency[0].dependencyFlags = 0;
+
+	subpassDependency[1].srcSubpass = 0;
+	subpassDependency[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependency[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	//has to happen before than
+	subpassDependency[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+	subpassDependency[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	subpassDependency[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	subpassDependency[1].dependencyFlags = 0;
+
+	VkRenderPassCreateInfo renderPassInfo = {};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments = &colorAttatchment;
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpass;
+	renderPassInfo.dependencyCount = static_cast<uint32_t>(subpassDependency.size());
+	renderPassInfo.pDependencies = subpassDependency.data();
+
+	if (vkCreateRenderPass(mainDevice.logicalDevice, &renderPassInfo, nullptr, &renderPass)!=VK_SUCCESS)
+		throw std::runtime_error("Failed creating render Pass");
+}
+
 void VulkanRender::createGraphicsPipeline()
 {
 	auto vertShaderCode = readFile("Shaders/vert.spv");
@@ -298,10 +360,10 @@ void VulkanRender::createGraphicsPipeline()
 	vertexShaderCreate.pName = "main";
 
 	VkPipelineShaderStageCreateInfo fragmentShaderCreate = {};
-	vertexShaderCreate.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	vertexShaderCreate.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	vertexShaderCreate.module = fragmentShader;
-	vertexShaderCreate.pName = "main";
+	fragmentShaderCreate.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	fragmentShaderCreate.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	fragmentShaderCreate.module = fragmentShader;
+	fragmentShaderCreate.pName = "main";
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertexShaderCreate, fragmentShaderCreate };
 
@@ -391,10 +453,40 @@ void VulkanRender::createGraphicsPipeline()
 	//blendInfo.blendConstants if we want constant blendings
 
 	//--Pipeline Layout (TODO:: Desccroiptor Set layouts//
-
+	VkPipelineLayoutCreateInfo layoutCreateInfo = {};
+	layoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layoutCreateInfo.pSetLayouts = nullptr;
+	layoutCreateInfo.setLayoutCount = 0;
+	layoutCreateInfo.pushConstantRangeCount = 0;
+	layoutCreateInfo.pPushConstantRanges = nullptr;
 	
+	if (vkCreatePipelineLayout(mainDevice.logicalDevice, &layoutCreateInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
+		throw std::runtime_error("Failed creating Pipeline Layout");
 
+	//todo: depth stencil testing. No depth stuff
 	//Destroy Modules
+
+	VkGraphicsPipelineCreateInfo pipelineInfo = {};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipelineInfo.stageCount = 2;
+	pipelineInfo.pStages = shaderStages;
+	pipelineInfo.pVertexInputState = &vertexIputCreateInfo;
+	pipelineInfo.pInputAssemblyState = &inputAssemblyCreateInfo;
+	pipelineInfo.pViewportState = &viewPortInfo;
+	pipelineInfo.pDynamicState = nullptr;
+	pipelineInfo.pRasterizationState = &rasterInfo;
+	pipelineInfo.pMultisampleState = &multisampleCreateInfo;
+	pipelineInfo.pColorBlendState = &blendInfo;
+	pipelineInfo.pDepthStencilState = nullptr;
+	pipelineInfo.layout = pipelineLayout;
+	pipelineInfo.renderPass = renderPass;
+	pipelineInfo.subpass = 0;
+
+	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // connect it to an existing pipeline
+	pipelineInfo.basePipelineIndex = -1; //create more pipelines.
+	//we can do cache pipelining
+	if(vkCreateGraphicsPipelines(mainDevice.logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline)!=VK_SUCCESS)
+		throw std::runtime_error("Fails creating Pipeline");
 
 	vkDestroyShaderModule(mainDevice.logicalDevice, fragmentShader, nullptr);
 	vkDestroyShaderModule(mainDevice.logicalDevice, vertexShader, nullptr);

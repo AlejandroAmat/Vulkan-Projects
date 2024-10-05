@@ -9,6 +9,7 @@
 #include "utilities.h"
 #include <set>
 #include <algorithm>
+#include <array>
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
@@ -43,6 +44,11 @@ private:
 	VkFormat swapChainFormat;
 	VkExtent2D swapChainExtent2D;
 	
+	//Pipeline
+	VkPipelineLayout pipelineLayout;
+	VkRenderPass renderPass;
+	VkPipeline graphicsPipeline;
+
 
 	//get functions
 	void getPhysicalDevice();
@@ -54,6 +60,7 @@ private:
 	void createLogicalDevice();
 	void createSurface();
 	void createSwapChain();
+	void createRenderPass();
 	void createGraphicsPipeline();
 
 	//support
