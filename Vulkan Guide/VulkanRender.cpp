@@ -49,7 +49,6 @@ VulkanRender::~VulkanRender()
 
 void VulkanRender::getPhysicalDevice()
 {
-	VkCommandBuffer commandBuffer;  // Invalid operation before logical device creation
 	uint32_t deviceCount = 0;
 	if(vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr)!= VK_SUCCESS)
 		throw std::runtime_error("Failed during enum Phyiscal Devices");
@@ -243,13 +242,13 @@ void VulkanRender::createSwapChain()
 			(uint32_t)indices.presentationFamily
 		};
 		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-		createInfo.queueFamilyIndexCount = 0;
-		createInfo.pQueueFamilyIndices = nullptr;
+		createInfo.queueFamilyIndexCount = 2;
+		createInfo.pQueueFamilyIndices = queueFamilyIndex;
 
 	}
 	else {
 		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		createInfo.queueFamilyIndexCount = 1;
+		createInfo.queueFamilyIndexCount = 0;
 		createInfo.pQueueFamilyIndices = nullptr;
 	}
 
@@ -429,6 +428,7 @@ bool VulkanRender::checkInstanceExtensionSupport(std::vector<const char*>* check
 	}
 	return true;
 }
+
 bool VulkanRender::checkDeviceSuitable(VkPhysicalDevice device)
 {	
 	VkPhysicalDeviceProperties deviceProperties;
@@ -552,9 +552,6 @@ VkExtent2D VulkanRender::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabi
 	}
 }
 
-
-
-
 QueueFamilyIndices VulkanRender::getQueueFamilies(VkPhysicalDevice device)
 {	
 	QueueFamilyIndices queueFamily;
@@ -581,9 +578,7 @@ QueueFamilyIndices VulkanRender::getQueueFamilies(VkPhysicalDevice device)
 
 }
 
-
-
- VkImageView VulkanRender::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags)
+VkImageView VulkanRender::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags)
  {
 	 VkImageViewCreateInfo viewInfo = {};
 	 viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
