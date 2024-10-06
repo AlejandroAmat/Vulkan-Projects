@@ -16,6 +16,8 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
+const uint32_t  MAX_FRAME = 2;
+
 class VulkanRender
 {
 public :
@@ -23,6 +25,7 @@ public :
 	VulkanRender();
 
 	int init(GLFWwindow* newWindow);
+	void draw();
 	void cleanUp();
 
 	~VulkanRender();
@@ -44,10 +47,16 @@ private:
 	std::vector<VkFramebuffer> framebuffer;
 	std::vector<VkCommandBuffer> commandBuffers; 
 
+	int currentFrame = 0;
 
 	//utility
 	VkFormat swapChainFormat;
 	VkExtent2D swapChainExtent2D;
+
+	//synch
+	std::vector<VkSemaphore> imagesAvailable;
+	std::vector<VkSemaphore> rendersFinished;
+	std::vector<VkFence> drawFence;
 	
 	//Pipeline
 	VkPipelineLayout pipelineLayout;
@@ -72,6 +81,7 @@ private:
 	void createFramebuffer();
 	void createCommandPool();
 	void createCommandBuffers();
+	void createSynchronization();
 
 	//record 
 	void recordCommand();

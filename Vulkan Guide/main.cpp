@@ -27,6 +27,7 @@ int main()
 	
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
+		renderer.draw();
 	}
 	renderer.cleanUp();
 	glfwDestroyWindow(window);

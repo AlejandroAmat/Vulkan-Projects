@@ -19,6 +19,7 @@ int VulkanRender::init(GLFWwindow* newWindow)
 		createCommandPool();
 		createCommandBuffers();
 		recordCommand();
+		createSynchronization();
 
 	}
 	catch (const std::runtime_error& e) {
@@ -30,8 +31,58 @@ int VulkanRender::init(GLFWwindow* newWindow)
 	return 0;
 }
 
+void VulkanRender::draw()
+{
+
+	vkWaitForFences(mainDevice.logicalDevice, 1, &drawFence[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
+	vkResetFences(mainDevice.logicalDevice, 1, &drawFence[currentFrame]);
+	//.1 get next available imaghe to draw. use semaphores
+	uint32_t ind;
+	vkAcquireNextImageKHR(mainDevice.logicalDevice, swapchain, std::numeric_limits<uint64_t>::max(), imagesAvailable[currentFrame], VK_NULL_HANDLE, &ind);
+	
+	//.2 Submit command buffer to queue for execution. wait for imaeg to be signaled.
+	
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = &imagesAvailable[currentFrame];
+	VkPipelineStageFlags waitStages[] = {
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+	};
+	submitInfo.pWaitDstStageMask = waitStages;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffers[ind];
+	submitInfo.pSignalSemaphores = &rendersFinished[currentFrame];
+	submitInfo.signalSemaphoreCount = 1;
+
+	if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, drawFence[currentFrame]))
+		throw std::runtime_error("Fail to submit Queue");
+	//.3 present image to screen when signaled (finish rendered)
+
+	VkPresentInfoKHR presentInfo = {};
+	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = &rendersFinished[currentFrame];
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &swapchain;
+	presentInfo.pImageIndices = &ind;
+
+	if (vkQueuePresentKHR(presentationQueue, &presentInfo))
+		throw std::runtime_error("Fail to create Image");
+
+	currentFrame = (currentFrame + 1)%MAX_FRAME;
+}
+
 void VulkanRender::cleanUp()
 {	
+	vkDeviceWaitIdle(mainDevice.logicalDevice);
+	for (size_t i = 0; i < MAX_FRAME; i++)
+	{
+		vkDestroyFence(mainDevice.logicalDevice, drawFence[i], nullptr);
+		vkDestroySemaphore(mainDevice.logicalDevice, rendersFinished[i], nullptr);
+		vkDestroySemaphore(mainDevice.logicalDevice, imagesAvailable[i], nullptr);
+	}
+	
 	vkDestroyCommandPool(mainDevice.logicalDevice, graphCommandPool, nullptr);
 	for (const auto& fb : framebuffer)
 	{
@@ -555,6 +606,29 @@ void VulkanRender::createCommandBuffers()
 
 }
 
+void VulkanRender::createSynchronization()
+{	
+	imagesAvailable.resize(MAX_FRAME);
+	rendersFinished.resize(MAX_FRAME);
+	drawFence.resize(MAX_FRAME);
+	//semphore
+	VkSemaphoreCreateInfo smphInfo = {};
+	smphInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	
+	VkFenceCreateInfo fenceInfo = {};
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+	for (size_t i = 0; i < MAX_FRAME; i++) {
+
+		if (vkCreateSemaphore(mainDevice.logicalDevice, &smphInfo, nullptr, &imagesAvailable[i]) != VK_SUCCESS ||
+			vkCreateSemaphore(mainDevice.logicalDevice, &smphInfo, nullptr, &rendersFinished[i]) != VK_SUCCESS ||
+			vkCreateFence(mainDevice.logicalDevice, &fenceInfo, nullptr, &drawFence[i]))
+			throw std::runtime_error("Failed creating Semaphores and/or Fence");
+	}
+	
+}
+
 void VulkanRender::recordCommand()
 {
 	VkCommandBufferBeginInfo bufferBeginInfo = {};
@@ -566,7 +640,7 @@ void VulkanRender::recordCommand()
 	rpInfo.renderPass = renderPass;
 	rpInfo.renderArea.offset = { 0,0 };
 	rpInfo.renderArea.extent = swapChainExtent2D;
-	VkClearValue clearValue[] = { 0.6f, 0.65f, 0.4f, 1.0f };
+	VkClearValue clearValue[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 	rpInfo.pClearValues = clearValue;
 	rpInfo.clearValueCount = 1;
 
