@@ -2,7 +2,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-
+#include "Mesh.h"
 #include <iostream>
 #include <stdexcept>
 #include <vector>
@@ -10,6 +10,7 @@
 #include <set>
 #include <algorithm>
 #include <array>
+
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
@@ -46,6 +47,8 @@ private:
 	std::vector<SwapChainImage> images;
 	std::vector<VkFramebuffer> framebuffer;
 	std::vector<VkCommandBuffer> commandBuffers; 
+
+	Mesh mesh;
 
 	int currentFrame = 0;
 

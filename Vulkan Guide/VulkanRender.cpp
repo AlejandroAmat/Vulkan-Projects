@@ -12,6 +12,17 @@ int VulkanRender::init(GLFWwindow* newWindow)
 		createSurface();
 		getPhysicalDevice();
 		createLogicalDevice();
+
+		std::vector<Vertex> meshVertices = {
+			{{0.4, -0.4, 0.0},{1.0, 0.0, 0.0}},  // First vertex
+			{{0.4, 0.4, 0.0}, {0.0, 1.0, 0.0}},   // Second vertex
+			{{-0.4, 0.4, 0.0},{0.0, 0.0, 1.0}},
+			{{-0.4, 0.4, 0.0},{0.0, 0.0, 1.0}},  // First vertex
+			{{-0.4, -0.4, 0.0},{0.0, 1.0, 0.0}},   // Second vertex
+			{{0.4, -0.4, 0.0}, {1.0, 0.0, 0.0}}
+			// Third vertex
+		};
+		mesh = Mesh(mainDevice.physicalDevice, mainDevice.logicalDevice, &meshVertices);
 		createSwapChain();
 		createRenderPass();
 		createGraphicsPipeline();
@@ -76,6 +87,7 @@ void VulkanRender::draw()
 void VulkanRender::cleanUp()
 {	
 	vkDeviceWaitIdle(mainDevice.logicalDevice);
+	mesh.destoryVertexBuffer();
 	for (size_t i = 0; i < MAX_FRAME; i++)
 	{
 		vkDestroyFence(mainDevice.logicalDevice, drawFence[i], nullptr);
@@ -427,14 +439,29 @@ void VulkanRender::createGraphicsPipeline()
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertexShaderCreate, fragmentShaderCreate };
 
 	//Pipeline
-	//VERTEX INPUT ---TODO
+	//VERTEX INPUT 
+	VkVertexInputBindingDescription bindingDescr = {};
+	bindingDescr.binding = 0;
+	bindingDescr.stride = sizeof(Vertex);
+	bindingDescr.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;   //how to move between with datra ag¡fter each vertex;
+
+	std::array<VkVertexInputAttributeDescription,2> attr;
+	attr[0].binding = 0;
+	attr[0].location = 0;
+	attr[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+	attr[0].offset = offsetof(Vertex, pos);
+
+	attr[1].binding = 0;
+	attr[1].location = 1;
+	attr[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+	attr[1].offset = offsetof(Vertex, col);
 
 	VkPipelineVertexInputStateCreateInfo vertexIputCreateInfo = {};
 	vertexIputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexIputCreateInfo.pVertexBindingDescriptions = nullptr;  //data spacing, values stride
-	vertexIputCreateInfo.vertexBindingDescriptionCount = 0;
-	vertexIputCreateInfo.pVertexAttributeDescriptions = nullptr;
-	vertexIputCreateInfo.vertexAttributeDescriptionCount = 0;
+	vertexIputCreateInfo.pVertexBindingDescriptions = &bindingDescr;  //data spacing, values stride
+	vertexIputCreateInfo.vertexBindingDescriptionCount = 1;
+	vertexIputCreateInfo.pVertexAttributeDescriptions = attr.data();
+	vertexIputCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attr.size());
 
 	// --INPUT ASSEMBLY--
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {};
@@ -462,7 +489,7 @@ void VulkanRender::createGraphicsPipeline()
 	viewPortInfo.scissorCount = 1;
 	viewPortInfo.viewportCount = 1;
 
-	//Dynamic states// will not do in course but to understand
+	/*//Dynamic states// will not do in course but to understand
 	std::vector<VkDynamicState> dynamicStatesEnables;
 	dynamicStatesEnables.push_back(VK_DYNAMIC_STATE_VIEWPORT);
 	dynamicStatesEnables.push_back(VK_DYNAMIC_STATE_SCISSOR);   //vkcmdSetViewport//scrissor commandBuffer, 0 (ind), 1 (size), &newViweport/scissor);
@@ -471,7 +498,7 @@ void VulkanRender::createGraphicsPipeline()
 	dynStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 	dynStateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStatesEnables.size());
 	dynStateInfo.pDynamicStates = dynamicStatesEnables.data();
-
+	*/
 	//--rasterizer--
 	
 	VkPipelineRasterizationStateCreateInfo rasterInfo = {};
@@ -480,6 +507,7 @@ void VulkanRender::createGraphicsPipeline()
 	rasterInfo.rasterizerDiscardEnable = VK_FALSE; //if not want to send everything to frambuffer-- if not drawing /store intermediate val.
 	rasterInfo.polygonMode = VK_POLYGON_MODE_FILL; //other needs gpuy feature
 	rasterInfo.lineWidth = 1.0f;
+	//rasterInfo.cullMode = VK_CULL_MODE_NONE;
 	rasterInfo.cullMode = VK_CULL_MODE_BACK_BIT;
 	rasterInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterInfo.depthBiasEnable = VK_FALSE;  //for shadow computations. for stopping shadow acne.
@@ -497,7 +525,7 @@ void VulkanRender::createGraphicsPipeline()
 	colorState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 	colorState.blendEnable = VK_TRUE;
 	colorState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	colorState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+	colorState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	colorState.colorBlendOp = VK_BLEND_OP_ADD;
 	//to keep  alpha for some reason
 	colorState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
@@ -633,14 +661,14 @@ void VulkanRender::recordCommand()
 {
 	VkCommandBufferBeginInfo bufferBeginInfo = {};
 	bufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	bufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT; //can be resubmitted to queue. just for now.
+	bufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT; //can be resubmitted to queue. just for now. NOT NEEDED
 
 	VkRenderPassBeginInfo rpInfo = {};
 	rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	rpInfo.renderPass = renderPass;
 	rpInfo.renderArea.offset = { 0,0 };
 	rpInfo.renderArea.extent = swapChainExtent2D;
-	VkClearValue clearValue[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	VkClearValue clearValue[] = { 0.6f, 0.65f, 0.4, 1.0f };
 	rpInfo.pClearValues = clearValue;
 	rpInfo.clearValueCount = 1;
 
@@ -653,8 +681,10 @@ void VulkanRender::recordCommand()
 			vkCmdBeginRenderPass(commandBuffers[i], &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-
-				vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+				VkBuffer vertexBuffers[] = { mesh.getVertexBuffer() };
+				VkDeviceSize offsets[] = { 0 };
+				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+				vkCmdDraw(commandBuffers[i], static_cast<uint32_t>(mesh.getVertexCount()), 1, 0, 0);
 
 			vkCmdEndRenderPass(commandBuffers[i]);
 

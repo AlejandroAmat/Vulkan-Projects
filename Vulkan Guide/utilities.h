@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fstream>
+#include <glm/glm.hpp>
 
 const std::vector<const char*> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -10,6 +11,12 @@ const std::vector<const char*> validationLayers = {
 	"VK_LAYER_KHRONOS_validation"
 };
 
+struct Vertex
+{
+	glm::vec3 pos;
+	glm::vec3 col;
+};
+
 struct QueueFamilyIndices {
 	int graphicsFamily = -1; //location
 	int presentationFamily = -1;
@@ -17,7 +24,6 @@ struct QueueFamilyIndices {
 		return graphicsFamily >= 0 && presentationFamily>=0;
 	}
 };
-
 
 struct SwapChainDetails {
 	VkSurfaceCapabilitiesKHR surfaceCapabilities; //surface properties
