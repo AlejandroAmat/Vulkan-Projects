@@ -39,7 +39,12 @@ private:
 	VkQueue presentationQueue;
 	VkSurfaceKHR surface;
 	VkSwapchainKHR swapchain;
+
 	std::vector<SwapChainImage> images;
+	std::vector<VkFramebuffer> framebuffer;
+	std::vector<VkCommandBuffer> commandBuffers; 
+
+
 	//utility
 	VkFormat swapChainFormat;
 	VkExtent2D swapChainExtent2D;
@@ -49,6 +54,8 @@ private:
 	VkRenderPass renderPass;
 	VkPipeline graphicsPipeline;
 
+	//Pools
+	VkCommandPool graphCommandPool;
 
 	//get functions
 	void getPhysicalDevice();
@@ -62,6 +69,12 @@ private:
 	void createSwapChain();
 	void createRenderPass();
 	void createGraphicsPipeline();
+	void createFramebuffer();
+	void createCommandPool();
+	void createCommandBuffers();
+
+	//record 
+	void recordCommand();
 
 	//support
 	bool checkInstanceExtensionSupport(std::vector<const char*>* extensions);

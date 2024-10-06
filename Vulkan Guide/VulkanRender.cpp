@@ -3,8 +3,6 @@
 VulkanRender::VulkanRender() {
 }
 
-
-
 int VulkanRender::init(GLFWwindow* newWindow)
 {	
 	window = newWindow;
@@ -17,7 +15,10 @@ int VulkanRender::init(GLFWwindow* newWindow)
 		createSwapChain();
 		createRenderPass();
 		createGraphicsPipeline();
-		
+		createFramebuffer();
+		createCommandPool();
+		createCommandBuffers();
+		recordCommand();
 
 	}
 	catch (const std::runtime_error& e) {
@@ -30,11 +31,17 @@ int VulkanRender::init(GLFWwindow* newWindow)
 }
 
 void VulkanRender::cleanUp()
-{			
+{	
+	vkDestroyCommandPool(mainDevice.logicalDevice, graphCommandPool, nullptr);
+	for (const auto& fb : framebuffer)
+	{
+		vkDestroyFramebuffer(mainDevice.logicalDevice, fb, nullptr);
+	}
 	vkDestroyPipeline(mainDevice.logicalDevice, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(mainDevice.logicalDevice, pipelineLayout, nullptr);
 	vkDestroyRenderPass(mainDevice.logicalDevice, renderPass,  nullptr);
-	for (const auto& image : images) {
+	for (const auto& image : images) 
+	{
 		vkDestroyImageView(mainDevice.logicalDevice, image.imageView, nullptr);
 	}
 	vkDestroySwapchainKHR(mainDevice.logicalDevice, swapchain, nullptr);
@@ -311,6 +318,7 @@ void VulkanRender::createRenderPass()
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &colorReference;
+	
 
 	//need to determine when layout transitions occur--> subpass dependencies.
 	std::array<VkSubpassDependency, 2> subpassDependency;
@@ -495,6 +503,91 @@ void VulkanRender::createGraphicsPipeline()
 
 
 
+}
+
+void VulkanRender::createFramebuffer()
+{
+	framebuffer.resize(images.size());
+
+	for (size_t i = 0; i < framebuffer.size(); i++)
+	{
+		std::array<VkImageView, 1> attatchments = {
+			images[i].imageView
+		};
+		VkFramebufferCreateInfo fBufferCreate = {};
+		fBufferCreate.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		fBufferCreate.renderPass = renderPass;
+		fBufferCreate.attachmentCount = static_cast<uint32_t>(attatchments.size());
+		fBufferCreate.width = swapChainExtent2D.width;
+		fBufferCreate.height = swapChainExtent2D.height;
+		fBufferCreate.pAttachments = attatchments.data();
+		fBufferCreate.layers = 1;
+
+		if (vkCreateFramebuffer(mainDevice.logicalDevice, &fBufferCreate, nullptr, &framebuffer[i]) != VK_SUCCESS)
+			throw std::runtime_error("Failed to create Frame Buffer");
+	}
+}
+
+void VulkanRender::createCommandPool()
+{
+	QueueFamilyIndices ind = getQueueFamilies(mainDevice.physicalDevice);
+	VkCommandPoolCreateInfo poolInfo = {};
+	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	poolInfo.queueFamilyIndex = ind.graphicsFamily;
+
+	if(vkCreateCommandPool(mainDevice.logicalDevice, &poolInfo, nullptr, &graphCommandPool)!=VK_SUCCESS)
+		throw std::runtime_error("Fail to create Command Pool");
+}
+
+void VulkanRender::createCommandBuffers()
+{
+	commandBuffers.resize(framebuffer.size());
+
+	VkCommandBufferAllocateInfo cbAllocInfo = {};
+	cbAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	cbAllocInfo.commandPool = graphCommandPool;
+	cbAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; //executed by queue--secondary-> by other buffers
+
+	cbAllocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+
+	if (vkAllocateCommandBuffers(mainDevice.logicalDevice, &cbAllocInfo, commandBuffers.data()) != VK_SUCCESS)
+		throw std::runtime_error("Fail to allocate buffers");
+
+}
+
+void VulkanRender::recordCommand()
+{
+	VkCommandBufferBeginInfo bufferBeginInfo = {};
+	bufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	bufferBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT; //can be resubmitted to queue. just for now.
+
+	VkRenderPassBeginInfo rpInfo = {};
+	rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	rpInfo.renderPass = renderPass;
+	rpInfo.renderArea.offset = { 0,0 };
+	rpInfo.renderArea.extent = swapChainExtent2D;
+	VkClearValue clearValue[] = { 0.6f, 0.65f, 0.4f, 1.0f };
+	rpInfo.pClearValues = clearValue;
+	rpInfo.clearValueCount = 1;
+
+	for (size_t i = 0; i < commandBuffers.size(); i++) {
+		rpInfo.framebuffer = framebuffer[i];
+
+		if (vkBeginCommandBuffer(commandBuffers[i], &bufferBeginInfo) != VK_SUCCESS)
+			throw std::runtime_error("Fail to record Command Buffer");
+		
+			vkCmdBeginRenderPass(commandBuffers[i], &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+				vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+
+			vkCmdEndRenderPass(commandBuffers[i]);
+
+		if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
+			throw std::runtime_error("Fail to stop recording Command Buffer");
+	}
+		
 }
 
 bool VulkanRender::checkInstanceExtensionSupport(std::vector<const char*>* check) {
@@ -696,7 +789,7 @@ VkImageView VulkanRender::createImageView(VkImage image, VkFormat format, VkImag
 	 return imageView;
  }
 
- VkShaderModule VulkanRender::createShaderModule(const std::vector<char>& code)
+VkShaderModule VulkanRender::createShaderModule(const std::vector<char>& code)
  {
 	 VkShaderModuleCreateInfo shaderCreateInfo = {};
 	 shaderCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -711,18 +804,20 @@ VkImageView VulkanRender::createImageView(VkImage image, VkFormat format, VkImag
 
  }
 
- void VulkanRender::setupDebugMessenger() {
+void VulkanRender::setupDebugMessenger() 
+{
 	 if (!enableValidationLayers) return;
 
 	 VkDebugUtilsMessengerCreateInfoEXT createInfo;
 	 populateDebugMessengerCreateInfo(createInfo);
 
-	 if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
+	 if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
+	 {
 		 throw std::runtime_error("failed to set up debug messenger!");
 	 }
  }
 
- void VulkanRender::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+void VulkanRender::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
  {
 	 createInfo = {};
 	 createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -731,7 +826,7 @@ VkImageView VulkanRender::createImageView(VkImage image, VkFormat format, VkImag
 	 createInfo.pfnUserCallback = debugCallback;
  }
 
- VkResult VulkanRender::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+VkResult VulkanRender::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
 	 auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 	 if (func != nullptr) {
 		 return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
@@ -741,14 +836,12 @@ VkImageView VulkanRender::createImageView(VkImage image, VkFormat format, VkImag
 	 }
  }
 
-
- void VulkanRender::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+void VulkanRender::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
 	 auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
 	 if (func != nullptr) {
 		 func(instance, debugMessenger, pAllocator);
 	 }
  }
-
 
 
 
