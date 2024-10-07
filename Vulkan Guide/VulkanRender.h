@@ -49,6 +49,7 @@ private:
 	std::vector<VkCommandBuffer> commandBuffers; 
 
 	Mesh mesh;
+	std::vector<Mesh> meshes;
 
 	int currentFrame = 0;
 
