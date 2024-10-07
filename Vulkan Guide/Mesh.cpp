@@ -35,31 +35,12 @@ Mesh::~Mesh()
 
 void Mesh::createVertexBuffer(std::vector<Vertex>* vertices)
 {
-	VkBufferCreateInfo bufferInfo = {};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = sizeof(Vertex) * vertices->size();
-	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-	if (vkCreateBuffer(device, &bufferInfo, nullptr,&vertexBuffer) != VK_SUCCESS)
-		throw std::runtime_error("Fail creating Buffer");
-
-	VkMemoryRequirements memReq = {};
-	vkGetBufferMemoryRequirements(device, vertexBuffer, &memReq);
-
-	VkMemoryAllocateInfo allocInfo = {};
-	allocInfo.allocationSize = memReq.size;
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.memoryTypeIndex = findMemoryTypeIndex(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-	
-	if (vkAllocateMemory(device, &allocInfo, nullptr, &deviceMemory) != VK_SUCCESS)
-		throw std::runtime_error("Failed to allocate VB memory");
-
-	vkBindBufferMemory(device, vertexBuffer, deviceMemory, 0);
+	VkDeviceSize bfSize = sizeof(Vertex)* vertices->size();
+	createBuffer(physicalDevice, device, bfSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexBuffer, &deviceMemory);
 
 	void* data;
-	vkMapMemory(device, deviceMemory, 0, bufferInfo.size, 0, &data);
-	memcpy(data, vertices->data(), (size_t)bufferInfo.size);
+	vkMapMemory(device, deviceMemory, 0, bfSize, 0, &data);
+	memcpy(data, vertices->data(), (size_t)bfSize);
 	vkUnmapMemory(device, deviceMemory);
 }
 
