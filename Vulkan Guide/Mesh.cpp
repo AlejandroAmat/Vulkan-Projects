@@ -4,13 +4,13 @@ Mesh::Mesh()
 {
 }
 
-Mesh::Mesh(VkPhysicalDevice newPhyisicalDevice, VkDevice newDevice, std::vector<Vertex>* vertices)
+Mesh::Mesh(VkPhysicalDevice newPhyisicalDevice, VkDevice newDevice, std::vector<Vertex>* vertices, VkCommandPool transferPool, VkQueue transferQueue)
 {
 	vertexCount = vertices->size();
 	physicalDevice = newPhyisicalDevice;
 	device = newDevice;
-	createVertexBuffer(vertices);
-
+	createVertexBuffer(vertices,transferPool, transferQueue);
+	
 }
 
 int Mesh::getVertexCount()
@@ -33,15 +33,29 @@ Mesh::~Mesh()
 {
 }
 
-void Mesh::createVertexBuffer(std::vector<Vertex>* vertices)
+void Mesh::createVertexBuffer(std::vector<Vertex>* vertices, VkCommandPool commandPool, VkQueue queue)
 {
 	VkDeviceSize bfSize = sizeof(Vertex)* vertices->size();
-	createBuffer(physicalDevice, device, bfSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexBuffer, &deviceMemory);
 
+	//temporal stagingb buffer;
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	
+
+	createBuffer(physicalDevice, device, bfSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBuffer, &stagingBufferMemory);
 	void* data;
-	vkMapMemory(device, deviceMemory, 0, bfSize, 0, &data);
+	vkMapMemory(device, stagingBufferMemory, 0, bfSize, 0, &data);
 	memcpy(data, vertices->data(), (size_t)bfSize);
-	vkUnmapMemory(device, deviceMemory);
+	vkUnmapMemory(device, stagingBufferMemory);
+
+	//create Buffer as recipient of transfer
+
+	createBuffer(physicalDevice, device, bfSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &vertexBuffer, &deviceMemory);
+
+	copyBuffer(device, bfSize, stagingBuffer, vertexBuffer, commandPool, queue);
+
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 uint32_t Mesh::findMemoryTypeIndex(uint32_t allowedType, VkMemoryPropertyFlags flags)

@@ -12,6 +12,11 @@ int VulkanRender::init(GLFWwindow* newWindow)
 		createSurface();
 		getPhysicalDevice();
 		createLogicalDevice();
+		createSwapChain();
+		createRenderPass();
+		createGraphicsPipeline();
+		createFramebuffer();
+		createCommandPool();
 
 		std::vector<Vertex> meshVertices = {
 			{{0.4, -0.4, 0.0},{1.0, 0.0, 0.0}},  // First vertex
@@ -22,12 +27,8 @@ int VulkanRender::init(GLFWwindow* newWindow)
 			{{0.4, -0.4, 0.0}, {1.0, 0.0, 0.0}}
 			// Third vertex
 		};
-		mesh = Mesh(mainDevice.physicalDevice, mainDevice.logicalDevice, &meshVertices);
-		createSwapChain();
-		createRenderPass();
-		createGraphicsPipeline();
-		createFramebuffer();
-		createCommandPool();
+		mesh = Mesh(mainDevice.physicalDevice, mainDevice.logicalDevice, &meshVertices, graphCommandPool, graphicsQueue);
+
 		createCommandBuffers();
 		recordCommand();
 		createSynchronization();
@@ -577,10 +578,6 @@ void VulkanRender::createGraphicsPipeline()
 
 	vkDestroyShaderModule(mainDevice.logicalDevice, fragmentShader, nullptr);
 	vkDestroyShaderModule(mainDevice.logicalDevice, vertexShader, nullptr);
-
-	
-
-
 
 }
 

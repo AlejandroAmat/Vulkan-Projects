@@ -94,3 +94,43 @@ static void createBuffer(VkPhysicalDevice phisicalDevice, VkDevice device, VkDev
 
 	vkBindBufferMemory(device, *buffer, *bufferMemory, 0);
 }
+
+static void copyBuffer(VkDevice device, VkDeviceSize deviceSize, VkBuffer srcBuffer, VkBuffer dstBuffer, VkCommandPool transferPool, VkQueue transferQueue) 
+{
+
+	//create commandBuffer
+	VkCommandBuffer transfBuffer;
+	VkCommandBufferAllocateInfo allocateInfo = {};
+	allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocateInfo.commandPool = transferPool;
+	allocateInfo.commandBufferCount = 1;
+
+	vkAllocateCommandBuffers(device, &allocateInfo, &transfBuffer);
+
+	VkCommandBufferBeginInfo beginInfo = {};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	VkBufferCopy copy = {};
+	copy.dstOffset = 0;
+	copy.srcOffset = 0;
+	copy.size = deviceSize;
+
+	vkBeginCommandBuffer(transfBuffer, &beginInfo);
+		vkCmdCopyBuffer(transfBuffer, srcBuffer, dstBuffer,1, &copy);
+	vkEndCommandBuffer(transfBuffer);
+
+	//queue submission
+
+	VkSubmitInfo submitInfo = {};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &transfBuffer;
+
+	vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(transferQueue);
+
+	vkFreeCommandBuffers(device, transferPool, 1, &transfBuffer);
+
+}
